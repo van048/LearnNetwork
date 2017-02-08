@@ -11,8 +11,18 @@
     android:paddingTop="@dimen/activity_vertical_margin"
     tools:context="cn.ben.learnnetwork.MainActivity">
 
-    <TextView
+    <ImageView
+        android:id="@+id/iv_image"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Hello World!"/>
+        tools:ignore="ContentDescription"/>
+
+    <com.android.volley.toolbox.NetworkImageView
+        android:id="@+id/nv_image"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
+        android:layout_centerHorizontal="true"
+        android:layout_below="@id/iv_image"
+        android:layout_marginTop="20dp"
+        />
 </RelativeLayout>
