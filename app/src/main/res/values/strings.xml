@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">LearnNetwork</string>
+    <string name="cache">cache</string>
 </resources>

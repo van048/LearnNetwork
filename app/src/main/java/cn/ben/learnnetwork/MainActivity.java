@@ -4,7 +4,9 @@ import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.View;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import com.android.volley.AuthFailureError;
 import com.android.volley.Request;
@@ -16,6 +18,12 @@ import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.NetworkImageView;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
+import com.squareup.okhttp.Cache;
+import com.squareup.okhttp.Call;
+import com.squareup.okhttp.Callback;
+import com.squareup.okhttp.FormEncodingBuilder;
+import com.squareup.okhttp.OkHttpClient;
+import com.squareup.okhttp.RequestBody;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -35,6 +43,7 @@ import org.apache.http.protocol.HTTP;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -43,12 +52,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings("FieldCanBeLocal")
 public class MainActivity extends AppCompatActivity {
 
     private ImageView iv_image;
     private NetworkImageView nv_image;
+    private OkHttpClient mOkHttpClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -130,11 +141,38 @@ public class MainActivity extends AppCompatActivity {
         });
         ImageLoader.ImageListener listener = ImageLoader.getImageListener(iv_image, android.R.drawable.ic_btn_speak_now, android.R.drawable.ic_delete);
         imageLoader.get("http://img.my.csdn.net/uploads/201603/26/1458988468_5804.jpg", listener);
-        
+
         nv_image = (NetworkImageView) findViewById(R.id.nv_image);
         nv_image.setDefaultImageResId(android.R.drawable.ic_menu_report_image);
         nv_image.setErrorImageResId(android.R.drawable.stat_notify_error);
         nv_image.setImageUrl("http://img.my.csdn.net/uploads/201603/26/1458988468_5804.jpg", imageLoader);
+
+        getAsyncHttp();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    String res = getSyncHttp();
+                    Log.i("he", "ok sync: " + res);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
+
+        postAsyncHttp();
+
+
+        File sdCache = getExternalCacheDir();
+        int cacheSize = 10 * 1024 * 1024;
+        mOkHttpClient = new OkHttpClient();
+        assert sdCache != null;
+        mOkHttpClient.setCache(new Cache(sdCache.getAbsoluteFile(), cacheSize));
+
+
+        mOkHttpClient.setConnectTimeout(15, TimeUnit.SECONDS);
+        mOkHttpClient.setWriteTimeout(15, TimeUnit.SECONDS);
+        mOkHttpClient.setReadTimeout(15, TimeUnit.SECONDS);
     }
 
     private HttpClient createHttpClient() {
@@ -228,6 +266,117 @@ public class MainActivity extends AppCompatActivity {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private void getAsyncHttp() {
+        OkHttpClient okHttpClient = new OkHttpClient();
+        final com.squareup.okhttp.Request request = new com.squareup.okhttp.Request.Builder()
+                .url("http://www.baidu.com")
+                .build();
+
+        Call call = okHttpClient.newCall(request);
+        call.enqueue(new Callback() {
+            @Override
+            public void onFailure(com.squareup.okhttp.Request request, IOException e) {
+
+            }
+
+            @Override
+            public void onResponse(com.squareup.okhttp.Response response) throws IOException {
+                String str = response.body().string();
+                Log.i("he", "ok: " + str);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(getApplication(), "请求成功", Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+        });
+    }
+
+    private String getSyncHttp() throws IOException {
+        OkHttpClient okHttpClient = new OkHttpClient();
+        com.squareup.okhttp.Request request = new com.squareup.okhttp.Request.Builder()
+                .url("http://www.baidu.com")
+                .build();
+
+        Call call = okHttpClient.newCall(request);
+        com.squareup.okhttp.Response response = call.execute();
+        if (response.isSuccessful()) {
+            return response.body().string();
+        } else {
+            throw new IOException("Unexpected code " + response);
+        }
+    }
+
+    private void postAsyncHttp() {
+        // TODO: 2017/2/9
+        RequestBody requestBody = new FormEncodingBuilder()
+                .add("citypinyin", "beijing")
+                .build();
+
+        OkHttpClient okHttpClient = new OkHttpClient();
+        com.squareup.okhttp.Request request = new com.squareup.okhttp.Request.Builder()
+                .url("http://apistore.baidu.com/microservice/weather")
+                .post(requestBody)
+                .build();
+
+        Call call = okHttpClient.newCall(request);
+        call.enqueue(new Callback() {
+            @Override
+            public void onFailure(com.squareup.okhttp.Request request, IOException e) {
+
+            }
+
+            @Override
+            public void onResponse(com.squareup.okhttp.Response response) throws IOException {
+                String str = response.body().string();
+                Log.i("he", "ok post async: " + str);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(getApplicationContext(), "post请求成功", Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+        });
+    }
+
+    // TODO: 2017/2/9
+    @SuppressWarnings("UnusedParameters")
+    public void getAsyncHttpCache(View view) {
+        final com.squareup.okhttp.Request request = new com.squareup.okhttp.Request.Builder()
+                .url("http://www.baidu.com")
+                .build();
+
+        Callback callback = new Callback() {
+            @Override
+            public void onFailure(com.squareup.okhttp.Request request, IOException e) {
+
+            }
+
+            @Override
+            public void onResponse(com.squareup.okhttp.Response response) throws IOException {
+                if (null != response.cacheResponse()) {
+                    String str = response.cacheResponse().toString();
+                    Log.i("he", "ok cache: " + str);
+                } else {
+                    response.body().string();
+                    String str = response.networkResponse().toString();
+                    Log.i("he", "ok network: " + str);
+                }
+
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(getApplication(), "cache 请求成功", Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+        };
+
+        mOkHttpClient.newCall(request).enqueue(callback);
     }
 
 }
