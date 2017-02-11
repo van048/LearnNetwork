@@ -2,6 +2,7 @@ package cn.ben.learnnetwork;
 
 import android.graphics.Bitmap;
 import android.os.Bundle;
+import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
@@ -44,6 +45,7 @@ import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -54,12 +56,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import okhttp3.FormBody;
+import okhttp3.MediaType;
+
 @SuppressWarnings("FieldCanBeLocal")
 public class MainActivity extends AppCompatActivity {
 
     private ImageView iv_image;
     private NetworkImageView nv_image;
     private OkHttpClient mOkHttpClient;
+    // TODO: 2017/2/9
+    private static final MediaType MEDIA_TYPE_MARKDOWN = MediaType.parse("text/x-markdown; charset=utf-8");
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -169,10 +176,13 @@ public class MainActivity extends AppCompatActivity {
         assert sdCache != null;
         mOkHttpClient.setCache(new Cache(sdCache.getAbsoluteFile(), cacheSize));
 
-
         mOkHttpClient.setConnectTimeout(15, TimeUnit.SECONDS);
         mOkHttpClient.setWriteTimeout(15, TimeUnit.SECONDS);
         mOkHttpClient.setReadTimeout(15, TimeUnit.SECONDS);
+
+        postAsyncHttp3();
+        postAsyncFile3();
+        downAsyncFile3();
     }
 
     private HttpClient createHttpClient() {
@@ -379,4 +389,93 @@ public class MainActivity extends AppCompatActivity {
         mOkHttpClient.newCall(request).enqueue(callback);
     }
 
+    private void postAsyncHttp3() {
+        // TODO: 2017/2/9
+        okhttp3.RequestBody requestBody = new FormBody.Builder()
+                .add("citypinyin", "beijing")
+                .build();
+
+        okhttp3.OkHttpClient okHttpClient = new okhttp3.OkHttpClient();
+        okhttp3.Request request = new okhttp3.Request.Builder()
+                .url("http://apistore.baidu.com/microservice/weather")
+                .post(requestBody)
+                .build();
+
+        okhttp3.Call call = okHttpClient.newCall(request);
+        call.enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(okhttp3.Call call, IOException e) {
+
+            }
+
+            @Override
+            public void onResponse(okhttp3.Call call, okhttp3.Response response) throws IOException {
+                String str = response.body().string();
+                Log.i("he", "ok3 post async: " + str);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(getApplicationContext(), "post3 请求成功", Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+        });
+    }
+
+    private void postAsyncFile3() {
+        okhttp3.OkHttpClient client = new okhttp3.OkHttpClient();
+        File file = new File(Environment.getExternalStorageDirectory().getPath() + File.separator + "youshixiuluyou.log");
+        okhttp3.Request request = new okhttp3.Request.Builder()
+                .url("https://api.github.com/markdown/raw")
+                .post(okhttp3.RequestBody.create(MEDIA_TYPE_MARKDOWN, file))
+                .build();
+
+        client.newCall(request).enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(okhttp3.Call call, IOException e) {
+
+            }
+
+            @Override
+            public void onResponse(okhttp3.Call call, okhttp3.Response response) throws IOException {
+                Log.i("he", "post file: " + response.body().string());
+            }
+        });
+    }
+
+    private void downAsyncFile3() {
+        okhttp3.OkHttpClient client = new okhttp3.OkHttpClient();
+        String url = "http://img.my.csdn.net/uploads/201603/26/1458988468_5804.jpg";
+        okhttp3.Request request = new okhttp3.Request.Builder()
+                .url(url)
+                .build();
+
+        client.newCall(request).enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(okhttp3.Call call, IOException e) {
+
+            }
+
+            @Override
+            public void onResponse(okhttp3.Call call, okhttp3.Response response) throws IOException {
+                InputStream s = response.body().byteStream();
+                FileOutputStream fos;
+
+                try {
+                    fos = new FileOutputStream(new File(getExternalCacheDir(), "ben.jpg"));
+                    byte[] buffer = new byte[2048];
+                    int len;
+                    while ((len = s.read(buffer)) != -1) {
+                        fos.write(buffer, 0, len);
+                    }
+                    fos.flush();
+                    fos.close();
+                } catch (IOException e) {
+                    Log.i("he", "IOException");
+                    e.printStackTrace();
+                }
+                Log.d("he", "down success");
+            }
+        });
+    }
 }
